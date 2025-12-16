@@ -37,16 +37,19 @@ const DoctorRegistry = () => {
       if (window.ethereum) {
         const web3Instance = new Web3(window.ethereum);
         try {
-          await window.ethereum.enable();
+          await window.ethereum.request({ method: 'eth_requestAccounts' });
           setWeb3(web3Instance);
 
           const networkId = await web3Instance.eth.net.getId();
           const deployedNetwork = DoctorRegistration.networks[networkId];
+          if (!deployedNetwork || !deployedNetwork.address) {
+            alert("Smart contract not deployed on the selected network. Please switch your wallet to the correct network.");
+            return;
+          }
           const contractInstance = new web3Instance.eth.Contract(
             DoctorRegistration.abi,
-            deployedNetwork && deployedNetwork.address
+            deployedNetwork.address
           );
-
           setContract(contractInstance);
         } catch (error) {
           console.error("User denied access to accounts.");
@@ -115,11 +118,22 @@ const DoctorRegistry = () => {
     try {
       const web3 = new Web3(window.ethereum);
 
+      const accounts = await web3.eth.getAccounts();
+      if (!accounts || accounts.length === 0) {
+        alert("No wallet account found. Please connect MetaMask and try again.");
+        return;
+      }
+      const sender = accounts[0];
       const networkId = await web3.eth.net.getId();
 
+      const deployedNetwork = DoctorRegistration.networks[networkId];
+      if (!deployedNetwork || !deployedNetwork.address) {
+        alert("Smart contract not deployed on the selected network. Please switch your wallet to the correct network.");
+        return;
+      }
       const contract = new web3.eth.Contract(
         DoctorRegistration.abi,
-        DoctorRegistration.networks[networkId].address
+        deployedNetwork.address
       );
 
       const isRegDoc = await contract.methods
@@ -145,7 +159,7 @@ const DoctorRegistry = () => {
           workExperience,
           password // Include password in the function call
         )
-        .send({ from: doctorAddress });
+        .send({ from: sender });
 
       alert("Doctor registered successfully!");
       navigate("/");
